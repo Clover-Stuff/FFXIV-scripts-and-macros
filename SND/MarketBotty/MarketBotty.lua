@@ -131,8 +131,8 @@ end
 
 function CloseRetainer()
   while not IsAddonVisible("RetainerList") do
-    if IsAddonVisible("RetainerSellList") then yield("/callback RetainerSellList true -1") end
-    if IsAddonVisible("SelectString") then yield("/callback SelectString true -1") end
+    SafeCallback("RetainerSellList", true, -1)
+    SafeCallback("SelectString", true, -1)
     if IsAddonVisible("Talk") then yield("/click Talk_Click") end
     yield("/wait 0.1")
   end
@@ -160,10 +160,10 @@ function ClickItem(item)
   CloseSales()
   while IsAddonVisible("RetainerSell")==false do
     if IsAddonVisible("ContextMenu") then
-      yield("/callback ContextMenu true 0 0")
+      SafeCallback("ContextMenu", true, 0, 0)
       yield("/wait 0.2")
     elseif IsAddonVisible("RetainerSellList") then
-      yield("/callback RetainerSellList true 0 ".. item - 1 .." 1")
+      SafeCallback("RetainerSellList", true, 0, item - 1, 1)
     else
       SomethingBroke("RetainerSellList", "ClickItem()")
     end
@@ -175,9 +175,9 @@ function ReadOpenItem()
   last_item = open_item
   open_item = ""
   item_name_checks = 0
-  while item_name_checks < name_rechecks and ( open_item == last_item or open_item == "" ) do
+  while item_name_checks < (name_rechecks/2) and ( open_item == last_item or open_item == "" ) do
     item_name_checks = item_name_checks + 1
-    yield("/wait 0.1")
+    yield("/wait 0.2")
     --open_item = string.sub(string.gsub(GetNodeText("RetainerSell",18),"%W",""),3,-3)
     open_item = string.gsub(GetNodeText("RetainerSell",18),"%W","")
   end
@@ -189,14 +189,14 @@ function SearchResults()
   if IsAddonVisible("ItemSearchResult")==false then
     yield("/wait 0.1")
     if IsAddonVisible("ItemSearchResult")==false then
-      yield("/callback RetainerSell true 4")
+      SafeCallback("RetainerSell", true, 4)
     end
   end
   yield("/waitaddon ItemSearchResult")
   if IsAddonVisible("ItemHistory")==false then
     yield("/wait 0.1")
     if IsAddonVisible("ItemHistory")==false then
-      yield("/callback ItemSearchResult true 0")
+      SafeCallback("ItemSearchResult", true, 0)
     end
   end
   yield("/wait 0.1")
@@ -216,10 +216,10 @@ function SearchResults()
     else
       search_wait_tick = search_wait_tick + 1
       if (search_wait_tick > 50) or (string.find(GetNodeText("ItemSearchResult", 26), "Please wait") and search_wait_tick > 10) then
-        yield("/callback RetainerSell true 4")
+        SafeCallback("RetainerSell", true, 4)
         yield("/wait 0.1")
         if IsAddonVisible("ItemHistory")==false then
-          yield("/callback ItemSearchResult true 0")
+          SafeCallback("ItemSearchResult", true, 0)
         end
         yield("/wait 0.1")
         search_wait_tick = 0
@@ -271,7 +271,7 @@ end
 
 function HistoryAverage()
   while IsAddonVisible("ItemHistory")==false do
-    yield("/callback ItemSearchResult true 0")
+    SafeCallback("ItemSearchResult", true, 0)
     yield("/wait 0.3")
   end
   yield("/waitaddon ItemHistory")
@@ -347,16 +347,16 @@ end
 function SetPrice(price)
   debug("Setting price to: "..price)
   CloseSearch()
-  yield("/callback RetainerSell true 2 "..price)
-  yield("/callback RetainerSell true 0")
+  SafeCallback("RetainerSell", true, 2, price)
+  SafeCallback("RetainerSell", true, 0)
   CloseSales()
 end
 
 function CloseSearch()
   while IsAddonVisible("ItemSearchResult") or IsAddonVisible("ItemHistory") do
     yield("/wait 0.1")
-    if IsAddonVisible("ItemSearchResult") then yield("/callback ItemSearchResult true -1") end
-    if IsAddonVisible("ItemHistory") then yield("/callback ItemHistory true -1") end
+    if IsAddonVisible("ItemSearchResult") then SafeCallback("ItemSearchResult", true, -1) end
+    if IsAddonVisible("ItemHistory") then SafeCallback("ItemHistory", true, -1) end
   end
 end
 
@@ -364,7 +364,7 @@ function CloseSales()
   CloseSearch()
   while IsAddonVisible("RetainerSell") do
     yield("/wait 0.1")
-    if IsAddonVisible("RetainerSell") then yield("/callback RetainerSell true -1") end
+    if IsAddonVisible("RetainerSell") then SafeCallback("RetainerSell", true, -1) end
   end
 end
 
@@ -519,6 +519,37 @@ function debug(debug_input)
   end
 end
 
+function SafeCallback(...)  -- Could be safer, but this is a good start, right?
+  local callback_table = table.pack(...)
+  local addon = nil
+  local update = nil
+  if type(callback_table[1])=="string" then
+    addon = callback_table[1]
+    table.remove(callback_table, 1)
+  end
+  if type(callback_table[1])=="boolean" then
+    update = tostring(callback_table[1])
+    table.remove(callback_table, 1)
+  elseif type(callback_table[1])=="string" then
+    if string.find(callback_table[1], "t") then
+      update = "true"
+    elseif string.find(callback_table[1], "f") then
+      update = "false"
+    end
+    table.remove(callback_table, 1)
+  end
+
+  local call_command = "/pcall " .. addon .. " " .. update
+  for _, value in pairs(callback_table) do
+    if type(value)=="number" then
+      call_command = call_command .. " " .. tostring(value)
+    end
+  end
+  if IsAddonReady(addon) and IsAddonVisible(addon) then
+    yield(call_command)
+  end
+end
+
 function Clear()
   next_retainer = 0
   prices_list = {}
@@ -666,7 +697,7 @@ elseif GetCharacterCondition(50, false) then
 elseif IsAddonVisible("RecommendList") then
   helper_mode = true
   while IsAddonVisible("RecommendList") do
-    yield("/callback RecommendList true -1")
+    SafeCallback("RecommendList", true, -1)
     yield("/wait 0.1")
   end
   echo("Starting in helper mode!")
@@ -872,7 +903,7 @@ end
 ::MultiMode::
 if is_multimode then
   while IsAddonVisible("RetainerList") do
-    yield("/callback RetainerList true -1")
+    SafeCallback("RetainerList", true, -1)
     yield("/wait 1")
   end
   NextCharacter()
@@ -890,7 +921,7 @@ if string.find(after_multi, "logout") then
   yield("/logout")
   yield("/waitaddon SelectYesno")
   yield("/wait 0.5")
-  yield("/callback SelectYesno true 0")
+  SafeCallback("SelectYesno", true, 0)
   while GetCharacterCondition(1) do
     yield("/wait 1.1")
   end
@@ -932,7 +963,7 @@ end
 
 ::EndOfScript::
 while IsAddonVisible("RecommendList") do
-  yield("/callback RecommendList true -1")
+  SafeCallback("RecommendList", true, -1)
   yield("/wait 0.1")
 end
 echo("---------------------")
