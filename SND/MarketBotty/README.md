@@ -1,17 +1,19 @@
-Working! Still have some fancy features left to do. All the important stuff is done.  
-Don't message me. I don't care what you have to say.  
-In case you're blind and/or stupid, here's another link to the script itself https://github.com/plottingCreeper/FFXIV-scripts-and-macros/blob/main/SND/MarketBotty/MarketBotty.lua  
-This readme isn't finished yet either. I'm sure you'll figure it out though.  
-<br>
+https://github.com/plottingCreeper/FFXIV-scripts-and-macros/blob/main/SND/MarketBotty/MarketBotty.lua  
+# CURRENTLY NOT WORKING!  
+<br>  
+
+I tried to write some documentation at some point, but it was never finished. Here it is I guess, maybe it'll help someone.  
+PRs welcome.  
+<br>  
 
 Look, this is dodgy as hell. A lot of FFXIV plugin communities will have opinions on shit like this. I don't agree with those opinions, but regardless, I want to respect them, and especially respect the rules in those communities. DO NOT discuss this in places that ban discussion of market automation. Check the damn rules before saying anything.  
 
-<br>
+<br>  
 
 # MarketBotty!
 Automatic sale undercutting script. Requires `Something Need Doing (Expanded Edition)`. Multimode currently requires `AutoRetainer`.
 Requires Pandora for /pcall, but that's being moved to SND at some point(?) so good luck I guess.
-<br>
+<br>  
 
 ## Starting conditions
 If script is started while not at a summoning bell, it will try to find a summoning bell and interact with it. Don't expect too much of this. It's only intended for multimode, for characters that are logged out near a summoning bell or house.  
