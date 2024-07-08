@@ -346,7 +346,7 @@ end
 
 function SetPrice(price)
   debug("Setting price to: "..price)
-  yield("/callback ItemSearchResult true -1")
+  CloseSearch()
   yield("/callback RetainerSell true 2 "..price)
   yield("/callback RetainerSell true 0")
   CloseSales()
