@@ -120,7 +120,7 @@ function OpenRetainer(r)
   yield("/click RetainerList_Retainer"..r)
   yield("/wait 0.5")
   while IsAddonVisible("SelectString")==false do
-    if IsAddonVisible("Talk") then yield("/click Talk_Click") end
+    if IsAddonVisible("Talk") and IsAddonReady("Talk") then yield("/click Talk_Click") end
     yield("/wait 0.1")
   end
   if not IsAddonVisible("SelectString") then SomethingBroke("SelectString", "OpenRetainer("..r..")") end
@@ -133,7 +133,7 @@ function CloseRetainer()
   while not IsAddonVisible("RetainerList") do
     SafeCallback("RetainerSellList", true, -1)
     SafeCallback("SelectString", true, -1)
-    if IsAddonVisible("Talk") then yield("/click Talk_Click") end
+    if IsAddonVisible("Talk") and IsAddonReady("Talk") then yield("/click Talk_Click") end
     yield("/wait 0.1")
   end
 end
