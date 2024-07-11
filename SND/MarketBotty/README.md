@@ -1,5 +1,5 @@
 https://github.com/plottingCreeper/FFXIV-scripts-and-macros/blob/main/SND/MarketBotty/MarketBotty.lua  
-# CURRENTLY NOT WORKING!  
+# WORKING!  
 <br>  
 
 I tried to write some documentation at some point, but it was never finished. Here it is I guess, maybe it'll help someone.  
