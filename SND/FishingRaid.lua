@@ -383,6 +383,37 @@ function EatFood()
   end
 end
 
+function SafeCallback(...)  -- Could be safer, but this is a good start, right?
+  local callback_table = table.pack(...)
+  local addon = nil
+  local update = nil
+  if type(callback_table[1])=="string" then
+    addon = callback_table[1]
+    table.remove(callback_table, 1)
+  end
+  if type(callback_table[1])=="boolean" then
+    update = tostring(callback_table[1])
+    table.remove(callback_table, 1)
+  elseif type(callback_table[1])=="string" then
+    if string.find(callback_table[1], "t") then
+      update = "true"
+    elseif string.find(callback_table[1], "f") then
+      update = "false"
+    end
+    table.remove(callback_table, 1)
+  end
+
+  local call_command = "/pcall " .. addon .. " " .. update
+  for _, value in pairs(callback_table) do
+    if type(value)=="number" then
+      call_command = call_command .. " " .. tostring(value)
+    end
+  end
+  if IsAddonReady(addon) and IsAddonVisible(addon) then
+    yield(call_command)
+  end
+end
+
 correct_bait = baits_list.unset
 normal_bait = baits_list.unset
 spectral_bait = baits_list.unset
@@ -409,6 +440,7 @@ if score_screen_delay<0 or score_screen_delay>500 then score_screen_delay = 3 en
 points_earned = 0
 
 ::Start::
+DeleteAllAutoHookAnonymousPresets()
 if IsAddonVisible("IKDResult") then
   goto FishingResults
 elseif IsInZone(900) or IsInZone(1163) then
@@ -816,6 +848,7 @@ while ( IsInZone(900) or IsInZone(1163) ) and IsAddonVisible("IKDResult")==false
   ::Ifs::
   ::Loading::
   if IsAddonVisible("NowLoading") or GetCharacterCondition(35) then
+    DeleteAllAutoHookAnonymousPresets()
     is_changed_zone = true
     WaitReady(2)
 
@@ -971,8 +1004,8 @@ if IsAddonVisible("IKDResult") then
 end
 
 ::DoneFishing::
-RunDiscard(1)
 DeleteAllAutoHookAnonymousPresets()
+RunDiscard(1)
 WaitReady(3, false, 72)
 if IsInZone(129) then
   yield("/echo Landed at: X:"..math.floor(GetPlayerRawXPos()*1000)/1000 .." Z:"..math.floor(GetPlayerRawYPos()*1000)/1000 .." Y:"..math.floor(GetPlayerRawZPos()*1000)/1000)
@@ -1143,7 +1176,7 @@ WaitReady()
 if is_desynth then
   yield("/tweaks e UiAdjustments@ExtendedDesynthesisWindow")
   verbose("Running desynthesis.")
-    verbose("Do not touch the desynth window!")
+  verbose("Do not touch the desynth window!")
   is_doing_desynth = true
   failed_click_tick = 0
   open_desynth_attempts = 0
@@ -1171,7 +1204,7 @@ if is_desynth then
     elseif desynth_prev_item~=nil and item_name and desynth_last_item==item_name and desynth_prev_item==item_name then
       verbose("Repeat item bug?")
       verbose("Closing desynth window")
-      yield("/callback SalvageItemSelector true -1")
+      SafeCallback("SalvageItemSelector", true, -1)
       yield("/wait 1")
     elseif not IsAddonReady("SalvageItemSelector") then
       yield("/wait 0.541")
@@ -1179,20 +1212,21 @@ if is_desynth then
       while not IsAddonReady("SalvageDialog") do yield("/wait 0.1") end
       --if GetNodeText("SalvageDialog",21)==item_name then
       if string.gsub(GetNodeText("SalvageDialog",19),"%D","")~="000" then
-        yield("/callback SalvageDialog true 0 true")
+        SafeCallback("SalvageDialog", true, 13, true)
+        SafeCallback("SalvageDialog", true, 0)
         is_clicked_desynth = false
       else
         verbose("Empty SalvageDialogue window!")
         verbose("Ending desynth!")
         is_doing_desynth = false
-        yield("/callback SalvageDialog true -1")
-        yield("/callback SalvageItemSelector true -1")
+        SafeCallback("SalvageDialog", true, -1)
+        SafeCallback("SalvageItemSelector", true, -1)
       end
     elseif IsAddonVisible("SalvageResult") then
-      yield("/callback SalvageResult true 1")
+      SafeCallback("SalvageResult", true, 1)
     elseif IsAddonVisible("SalvageAutoDialog") then
       is_clicked_desynth = false
-      if string.sub(GetNodeText("SalvageAutoDialog", 27),1,1)=="0" then yield("/callback SalvageAutoDialog true -1") end
+      if string.sub(GetNodeText("SalvageAutoDialog", 27),1,1)=="0" then SafeCallback("SalvageAutoDialog", true, -1) end
     elseif GetCharacterCondition(39) then
       is_clicked_desynth = false
     elseif is_clicked_desynth then
@@ -1201,14 +1235,14 @@ if is_desynth then
         is_doing_desynth = false
         verbose("Desynth probably finished!")
         verbose("Closing desynth window")
-        yield("/callback SalvageItemSelector true -1")
+        SafeCallback("SalvageItemSelector", true, -1)
         yield("/wait 2")
         failed_click_tick = 0
       end
     elseif IsNodeVisible("SalvageItemSelector",1,13) or IsNodeVisible("SalvageItemSelector",1,12,2) then
       verbose("Desynth finished!")
       is_doing_desynth = false
-      yield("/callback SalvageItemSelector true -1")
+      SafeCallback("SalvageItemSelector", true, -1)
     else
       for i=1,20 do
         if string.gsub(GetNodeText("SalvageItemSelector", 3, 2, 8),"%W","")~="" then
@@ -1235,7 +1269,7 @@ if is_desynth then
           verbose("Desynthing: "..item_name)
           verbose("item_level: "..item_level, true)
           verbose("item_type: "..item_type, true)
-          yield("/callback SalvageItemSelector true 12 "..list-2)
+          SafeCallback("SalvageItemSelector", true, 12, list-2)
           is_clicked_desynth = true
           break
         elseif list==16 then
@@ -1247,7 +1281,7 @@ if is_desynth then
     end
     yield("/wait 0.540")
   end
-  yield("/callback SalvageItemSelector true -1")
+  SafeCallback("SalvageItemSelector", true, -1)
 end
 
 ::WrapUp::
