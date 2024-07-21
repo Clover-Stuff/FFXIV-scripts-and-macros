@@ -10,6 +10,10 @@ Look, this is dodgy as hell. A lot of FFXIV plugin communities will have opinion
 
 <br>  
 
+Known bug: Items with no sale history cause MarketBotty to stop. Should be fixed Soon™️.  
+
+<br>  
+
 # MarketBotty!
 Automatic sale undercutting script. Requires `Something Need Doing (Expanded Edition)`. Multimode currently requires `AutoRetainer`.
 Requires Pandora for /pcall, but that's being moved to SND at some point(?) so good luck I guess.
