@@ -732,7 +732,7 @@ if IsInZone(129) and GetDistanceToPoint(-410,4,76)<6.9 then
       yield("/lockon on")
       yield("/interact")
     elseif IsAddonVisible("Talk") then
-      yield("/click Talk_Click")
+      yield("/click Talk Click")
     elseif IsAddonReady("SelectString") then
       if GetSelectStringText(0)=="Register to board." then
         yield("/callback SelectString true 0")
@@ -1083,7 +1083,7 @@ if type(wait_location)=="string" then
           yield("/lockon on")
           yield("/interact")
         elseif IsAddonVisible("Talk") then
-          yield("/click Talk_Click")
+          yield("/click Talk Click")
         elseif IsAddonVisible("SelectString") then
           yield("/callback SelectString true 0")
         elseif IsAddonVisible("SelectYesno") then
