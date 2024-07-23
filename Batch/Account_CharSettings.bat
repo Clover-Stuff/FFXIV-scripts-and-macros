@@ -1,0 +1,12 @@
+SET FF_FOLDER=%USERPROFILE%\Documents\My games\FINAL FANTASY XIV - A Realm Reborn
+SET TARGET=%FF_FOLDER%\SYMLINK_TARGET
+
+FOR /D %%Q IN ("%FF_FOLDER%"\FFXIV_CHR*) DO (
+	FOR %%T IN ("%TARGET%"\*.DAT) DO (
+		DEL "%%Q\%%~nxT"
+		MKLINK "%%Q\%%~nxT" "%%T"
+	)
+)
+
+PAUSE
+EXIT /B
