@@ -1,5 +1,11 @@
 @ECHO OFF
 
+REM First, log in to alts to create their config folders.
+REM Make a copy of your main SortaKinda config, named the same as TARGET below.
+REM Save this script anywhere and run as administrator.
+REM All individual character configs for SortaKinda will be replaced with directory junctions.
+REM Script has to be run again after adding another character.
+
 SET CONFIG=%APPDATA%\XIVLauncher\pluginConfigs\SortaKinda
 SET TARGET=%CONFIG%\SORTA_TARGET
 
