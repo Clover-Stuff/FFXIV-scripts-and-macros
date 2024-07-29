@@ -118,15 +118,20 @@ function OpenRetainer(r)
   r = r - 1
   if not IsAddonVisible("RetainerList") then SomethingBroke("RetainerList", "OpenRetainer("..r..")") end
   yield("/wait 0.3")
-  yield("/click RetainerList Retainers["..r.."].Select")
+  --yield("/click RetainerList Retainers["..r.."].Select")
+  SafeCallback("RetainerList", true, 2, r)
   yield("/wait 0.5")
   while IsAddonVisible("SelectString")==false do
-    if IsAddonVisible("Talk") and IsAddonReady("Talk") then yield("/click Talk Click") end
+    if IsAddonVisible("Talk") and IsAddonReady("Talk") then 
+      --yield("/click Talk Click")
+      SafeCallback("Talk", true)
+    end
     yield("/wait 0.1")
   end
   if not IsAddonVisible("SelectString") then SomethingBroke("SelectString", "OpenRetainer("..r..")") end
   yield("/wait 0.3")
-  yield("/click SelectString Entries[3].Select")
+  --yield("/click SelectString Entries[3].Select")
+  SafeCallback("SelectString", true, 3)
   if not IsAddonVisible("RetainerSellList") then SomethingBroke("RetainerSellList", "OpenRetainer("..r..")") end
 end
 
@@ -134,7 +139,10 @@ function CloseRetainer()
   while not IsAddonVisible("RetainerList") do
     SafeCallback("RetainerSellList", true, -1)
     SafeCallback("SelectString", true, -1)
-    if IsAddonVisible("Talk") and IsAddonReady("Talk") then yield("/click Talk Click") end
+    if IsAddonVisible("Talk") and IsAddonReady("Talk") then
+      --yield("/click Talk Click")
+      SafeCallback("Talk", true)
+    end
     yield("/wait 0.1")
   end
 end
@@ -712,7 +720,8 @@ elseif IsAddonVisible("RetainerSell") then
   goto RepeatItem
 elseif IsAddonVisible("SelectString") then
   echo("Starting in single retainer mode!")
-  yield("/click SelectString Entries[2].Select")
+  --yield("/click SelectString Entries[2].Select")
+  SafeCallback("SelectString", true, 2)
   yield("/waitaddon RetainerSellList")
   is_single_retainer_mode = true
   goto Sales
