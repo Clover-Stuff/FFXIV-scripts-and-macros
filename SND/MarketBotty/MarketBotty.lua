@@ -148,7 +148,7 @@ function CloseRetainer()
 end
 
 function CountItems()
-  yield("/waitaddon RetainerSellList")
+  while IsAddonReady("RetainerSellList")==false do yield("/wait 0.1") end
   while string.gsub(GetNodeText("RetainerSellList", 3),"%d","")=="" do
     yield("/wait 0.1")
   end
@@ -162,7 +162,7 @@ function CountItems()
   item_count_trimmed = string.sub(raw_item_count,1,2)
   item_count = string.gsub(item_count_trimmed,"%D","")
   debug("Items for sale on this retainer: "..item_count)
-  return item_count
+  return tonumber(item_count)
 end
 
 function ClickItem(item)
