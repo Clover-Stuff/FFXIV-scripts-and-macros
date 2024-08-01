@@ -52,13 +52,13 @@ movement_method = "visland" --"visland" (navmesh coming soon)
 is_last_minute_entry = false  --Waits until 5 minutes before the boat leaves
 is_single_run = false  --Only go on 1 fishing trip, then stop.
 
--- Spend white gatherer scrips (overhaul coming soon:tm:)
+-- Spend white gatherer scrips
 spend_scrips_when_above = false
 scrip_category = 1
 scrip_subcategory = 1
 scrip_item_to_buy = "Hi-Cordial"
 
--- What to do when bags are full. (overhaul coming soon:tm:)
+-- What to do when bags are full.
 bags_full = {
   "/echo Bags full!",
   "/leaveduty",
