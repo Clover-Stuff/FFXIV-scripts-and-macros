@@ -19,7 +19,7 @@ IF %ERRORLEVEL% NEQ 0 (
     EXIT /B
 )
 
-IF EXIST %TARGET%\ (
+IF EXIST "%TARGET%\" (
     ECHO some useful message
 ) ELSE (
     ECHO %TARGET% does not exist!
