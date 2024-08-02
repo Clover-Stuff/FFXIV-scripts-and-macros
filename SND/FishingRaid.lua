@@ -429,7 +429,7 @@ else
   yield("/pcraft stop")
 end
 if type(is_leveling)=="string" then
-  if GetLevel()==90 then
+  if GetLevel()>=100 then
     is_leveling = false
   else
     is_leveling = true
