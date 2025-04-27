@@ -25,11 +25,12 @@ item_overrides = { --Item names with no spaces or symbols
 undercut = 1 --There's no reason to change this. 1 gil undercut is life.
 is_dont_undercut_my_retainers = true --Working!
 is_price_sanity_checking = true --Ignores market results below half the trimmed mean of historical prices.
+price_sanity_check_depth = 10 --How many top listings (0-13) to scan for sanity check before giving up and accepting a lower price.
 is_using_blacklist = true --Whether or not to use the blacklist_retainers list.
 history_trim_amount = 5 --Trims this many from highest and lowest in history list
 history_multiplier = "round" --if no active sales then get average historical price and multiply
 is_using_overrides = true --item_overrides table.
-is_check_for_hq = false --Not working yet :(
+is_check_for_hq = true --Working!
 
 is_override_report = true
 is_postrun_one_gil_report = true  --Requires is_verbose
@@ -246,35 +247,30 @@ function SearchPrices()
   yield("/waitaddon ItemSearchResult")
   prices_list = {}
   prices_list_length = 0
-  for i= 1, 10 do
-    raw_price = GetNodeText("ItemSearchResult", 5, i, 10)
-    if raw_price~="" and raw_price~=10 then
-      trimmed_price = string.gsub(raw_price,"%D","")
-      prices_list[i] = tonumber(trimmed_price)
-    end
-  end
-  debug(open_item.." Prices")
-  for price_number, _ in pairs(prices_list) do
-    debug(prices_list[price_number])
-    prices_list_length = prices_list_length + 1
-  end
-end
 
-function SearchRetainers()
-  search_retainers = {}
-  for i= 1, 10 do
-    market_search_retainer = GetNodeText("ItemSearchResult", 5, i, 5)
-    if market_search_retainer~="" and market_search_retainer~=5 then
-      search_retainers[i] = market_search_retainer
+  for i = 1, 13 do
+    raw_price = GetNodeText("ItemSearchResult", 5, i, 10)
+
+    if raw_price ~= "" and raw_price ~= 10 then
+      local node_hq = i == 1 and 4 or (i + 40999)
+      local is_visible = IsNodeVisible("ItemSearchResult", 1, 26, node_hq, 2, 3)
+      local trimmed_price = string.gsub(raw_price, "%D", "")
+	  local raw_retainer = GetNodeText("ItemSearchResult", 5, i, 5)
+
+      prices_list[i] = {
+        price = tonumber(trimmed_price),
+        isHQ = is_visible,
+		retainer = raw_retainer
+      }
+
+      debug((is_visible and "" or "") .. trimmed_price)
     end
   end
-  if is_debug then
-    debug(open_item.." Retainers")
-    for i = 1,10 do
-      if search_retainers[i] then
-        debug(search_retainers[i])
-      end
-    end
+
+  debug(open_item .. " Prices")
+
+  for _, _ in pairs(prices_list) do
+    prices_list_length = prices_list_length + 1
   end
 end
 
@@ -564,7 +560,6 @@ function Clear()
   prices_list = {}
   item_list = {}
   item_count = 0
-  search_retainers = {}
   last_item = ""
   open_item = ""
   is_single_retainer_mode = false
@@ -575,6 +570,7 @@ end
 ------------------------------------------------------------------------------------------------------
 
 -- Tried to do this as functions, but it was too hard. Oh well.
+::Start::
 if is_read_from_files then
   if file_exists(config_folder..marketbotty_settings) then
     chunk = loadfile(config_folder..marketbotty_settings)
@@ -687,7 +683,7 @@ if is_write_to_files then
   end
   if is_add_to_file and current_character~="null" then
     file_characters = io.open(config_folder..characters_file,"a")
-    file_characters:write("\n"..current_character)
+    file_characters:write("\n"..tostring(current_character))
     io.close(file_characters)
   end
 end
@@ -804,7 +800,6 @@ if is_blind then
   end
 else
   SearchPrices()
-  SearchRetainers()
   HistoryAverage()
   CloseSearch()
 end
@@ -823,50 +818,73 @@ if is_check_for_hq then
 end
 
 ::PricingLogic::
-if is_price_sanity_checking and target_price < prices_list_length then
-  if prices_list[target_price] == 1 then
+
+if is_price_sanity_checking and target_price < price_sanity_check_depth then
+  if prices_list[target_price].price == 1 then
     target_price = target_price + 1
     goto PricingLogic
   end
-  if prices_list[target_price] <= (history_trimmed_mean // 2) then
+  if prices_list[target_price].price <= (history_trimmed_mean // 2) then
     target_price = target_price + 1
-    goto PricingLogic
+	if target_price >= price_sanity_check_depth then
+	  target_price = 1
+	else
+      goto PricingLogic
+	end
   end
   debug("Price sanity checking results:")
-  debug("target_price "..target_price)
-  debug("prices_list[target_price] "..prices_list[target_price])
+  debug("target_price " .. target_price)
+  debug("prices_list[target_price].price " .. prices_list[target_price].price)
 end
+
 if is_check_for_hq and is_hq and target_price < prices_list_length then
-  debug("Checking listing "..target_price.." for HQ...")
-  if target_price==1 then
-    node_hq = 4
-  else
-    node_hq = target_price + 40999
-  end
-  --if not IsNodeVisible("ItemSearchResult", 5, target_price, 13) then
-  if not IsNodeVisible("ItemSearchResult", 1, 26, node_hq, 2, 3) then
-    debug(target_price.." not HQ")
+  debug("Checking listing " .. target_price .. " for HQ...")
+
+  if not prices_list[target_price].isHQ then
+    debug(target_price .. " not HQ")
     target_price = target_price + 1
     goto PricingLogic
   end
 end
+
 if is_dont_undercut_my_retainers then
   for _, retainer_test in pairs(my_retainers) do
-    if retainer_test == search_retainers[target_price] then
+    if retainer_test == prices_list[target_price].retainer then
       au = 0
-      debug("Matching price with own retainer: "..retainer_test)
+      debug("Matching price with own retainer: " .. retainer_test)
       break
     end
   end
 end
-price = prices_list[target_price] - au
+
+price = prices_list[target_price].price - au
 ItemOverride()
+
+
 if is_override_report and is_price_overridden then
   override_items_count = override_items_count + 1
+  local lowest_price = nil
+
+  -- Loop through prices_list to find the lowest price based on isHQ status
+  for i, item in pairs(prices_list) do
+    if item.isHQ then
+      -- If HQ is available, set the lowest HQ price
+      if not lowest_price or item.price < lowest_price then
+        lowest_price = item.price
+      end
+    elseif not item.isHQ then
+      -- If no HQ is set, find the lowest NQ price
+      if not lowest_price or item.price < lowest_price then
+        lowest_price = item.price
+      end
+    end
+  end
+
+  -- Report based on whether HQ price was found or not
   if is_multimode then
-    override_report[override_items_count] = open_item.." on "..GetCharacterName().." set: "..price..". Low: "..prices_list[1]
+    override_report[override_items_count] = open_item.." on "..GetCharacterName().." set: "..price..". Low: "..lowest_price
   else
-    override_report[override_items_count] = open_item.." set: "..price..". Low: "..prices_list[1]
+    override_report[override_items_count] = open_item.." set: "..price..". Low: "..lowest_price
   end
 elseif price <= 1 then
   echo("Should probably vendor this crap instead of setting it to 1. Since this script isn't *that* good yet, I'm just going to set it to...69. That's a nice number. You can deal with it yourself.")
@@ -882,11 +900,12 @@ elseif price <= 1 then
 elseif is_postrun_sanity_report and target_price ~= 1 then
   sanity_items_count = sanity_items_count + 1
   if is_multimode then
-    sanity_report[sanity_items_count] = open_item.." on "..GetCharacterName().." set: "..price..". Low: "..prices_list[1]
+    sanity_report[sanity_items_count] = open_item.." on "..GetCharacterName().." set: "..price..". Low: "..prices_list[1].price
   else
-    sanity_report[sanity_items_count] = open_item.." set: "..price..". Low: "..prices_list[1]
+    sanity_report[sanity_items_count] = open_item.." set: "..price..". Low: "..prices_list[1].price
   end
 end
+
 
 ::Apply::
 if price ~= tonumber(string.gsub(GetNodeText("RetainerSell",6),"%D","")) then
