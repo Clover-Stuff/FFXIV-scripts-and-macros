@@ -1,3 +1,5 @@
+import("System.Numerics")
+
 --[[
     MarketBotty! Fuck it, I'm going there. Don't @ me.
     https://github.com/plottingCreeper/FFXIV-scripts-and-macros/tree/main/SND/MarketBotty
@@ -60,14 +62,74 @@ is_autoretainer_compatibility = false --Not implemented. Last on the to-do list.
 
 ------------------------------------------------------------------------------------------------------
 
+function Echo(text)
+	yield("/echo " .. tostring(text))
+end
+
+function echo(text)
+	Echo(text)
+end
+
+function IsAddonReady(name)
+    return Addons.GetAddon(name).Ready
+end
+
+function IsAddonVisible(name)
+    return Addons.GetAddon(name).Exists
+end
+
+function IsNodeVisible(addonName, ...)
+  if (IsAddonReady(addonName)) then
+    local node = Addons.GetAddon(addonName):GetNode(...)
+    return node.IsVisible
+  else
+    return false
+  end
+end
+
+function GetNodeText(addonName, ...)
+  if (IsAddonReady(addonName)) then
+    local node = Addons.GetAddon(addonName):GetNode(...)
+    return tostring(node.Text)
+  else
+    return ""
+  end
+end
+
+function GetCharacterName()
+	return Entity.Player.Name
+end
+
+function GetCharacterCondition(i, bool)
+	return Svc.Condition[i] == bool
+end
+
+function IsInZone(i)
+	return Svc.ClientState.TerritoryType == i
+end
+
+function GetTargetName()
+  if (Entity.Target) then
+    return Entity.Target.Name
+  else
+    return ""
+  end
+end
+
+function GetDistanceToTarget()
+  return Vector3.Distance(Entity.Player.Position, Entity.Target.Position)
+end
+
+
+
 function file_exists(name)
   local f=io.open(name,"r")
   if f~=nil then io.close(f) return true else return false end
 end
 
 function CountRetainers()
-  if not IsAddonVisible("RetainerList") then SomethingBroke("RetainerList", "CountRetainers()") end
-  while string.gsub(GetNodeText("RetainerList", 2, 1, 13),"%d","")=="" do
+  if not IsAddonVisible("RetainerList") then verbose("RetainerList", "CountRetainers()") end
+  while string.gsub(GetNodeText("RetainerList", 1, 27, 4, 2, 3),"%d","")=="" do -- 2, i, 13 becomes the 27, i (4, 41001, 41002, ...), 3
     yield("/wait 0.1")
   end
   yield("/wait 0.1")
@@ -77,9 +139,10 @@ function CountRetainers()
   for i= 1, 10 do
     yield("/wait 0.01")
     include_retainer = true
-    retainer_name = GetNodeText("RetainerList", 2, i, 13)
+    nodeId = i == 1 and 4 or (i + 40999)
+    retainer_name = GetNodeText("RetainerList", 1, 27, nodeId, 2, 3)
     if retainer_name~="" and retainer_name~=13 then
-      if GetNodeText("RetainerList", 2, i, 5)~="None" then
+      if GetNodeText("RetainerList", 1, 27, nodeId, 2, 3)~="None" then
         if is_using_blacklist then
           for _, blacklist_test in pairs(blacklist_retainers) do
             if retainer_name==blacklist_test then
@@ -111,7 +174,7 @@ function CountRetainers()
       end
     end
   end
-  debug("Retainers to run on this character: " .. total_retainers)
+  verbose("Retainers to run on this character: " .. total_retainers)
   return total_retainers
 end
 
@@ -150,30 +213,28 @@ end
 
 function CountItems()
   while IsAddonReady("RetainerSellList")==false do yield("/wait 0.1") end
-  while string.gsub(GetNodeText("RetainerSellList", 3),"%d","")=="" do
+  while string.gsub(GetNodeText("RetainerSellList", 1, 14, 19),"%d","")=="" do
     yield("/wait 0.1")
   end
   count_wait_tick = 0
-  while GetNodeText("RetainerSellList", 3)==raw_item_count and count_wait_tick < 5 do
+  while GetNodeText("RetainerSellList", 1, 14, 19)==raw_item_count and count_wait_tick < 5 do
     count_wait_tick = count_wait_tick + 1
     yield("/wait 0.1")
   end
   yield("/wait 0.1")
-  raw_item_count = GetNodeText("RetainerSellList", 3)
+  raw_item_count = GetNodeText("RetainerSellList", 1, 14, 19)
   item_count_trimmed = string.sub(raw_item_count,1,2)
   item_count = string.gsub(item_count_trimmed,"%D","")
-  debug("Items for sale on this retainer: "..item_count)
+  debug_log("Items for sale on this retainer: "..item_count)
   return tonumber(item_count)
 end
 
-function ClickItem(item)
+function ClickItem()
   CloseSales()
   while IsAddonVisible("RetainerSell")==false do
     if IsAddonVisible("ContextMenu") then
       SafeCallback("ContextMenu", true, 0, 0)
       yield("/wait 0.2")
-    elseif IsAddonVisible("RetainerSellList") then
-      SafeCallback("RetainerSellList", true, 0, item - 1, 1)
     else
       SomethingBroke("RetainerSellList", "ClickItem()")
     end
@@ -189,10 +250,10 @@ function ReadOpenItem()
     item_name_checks = item_name_checks + 1
     yield("/wait 0.1")
     --open_item = string.sub(string.gsub(GetNodeText("RetainerSell",18),"%W",""),3,-3)
-    open_item = string.gsub(GetNodeText("RetainerSell",18),"%W","")
+    open_item = string.gsub(GetNodeText("RetainerSell",1,5,7),"%W","")
   end
-  debug("Last item: "..last_item)
-  debug("Open item: "..open_item)
+  debug_log("Last item: "..last_item)
+  debug_log("Open item: "..open_item)
 end
 
 function SearchResults()
@@ -214,18 +275,19 @@ function SearchResults()
   search_hits = ""
   search_wait_tick = 10
   while ready==false do
-    search_hits = GetNodeText("ItemSearchResult", 2)
-    first_price = string.gsub(GetNodeText("ItemSearchResult", 5, 1, 10),"%D","")
-    if search_wait_tick > 20 and string.find(GetNodeText("ItemSearchResult", 26), "No items found.") then
+    search_hits = GetNodeText("ItemSearchResult", 1, 29)
+    
+    first_price = string.gsub(GetNodeText("ItemSearchResult", 1, 26, 4, 5),"%D","")
+    if search_wait_tick > 20 and string.find(GetNodeText("ItemSearchResult", 1, 5), "No items found.") then
       ready = true
-      debug("No items found.")
+      debug_log("No items found.")
     end
     if (string.find(search_hits, "hit") and first_price~="") and (old_first_price~=first_price or search_wait_tick>20) then
       ready = true
-      debug("Ready!")
+      debug_log("Ready!")
     else
       search_wait_tick = search_wait_tick + 1
-      if (search_wait_tick > 50) or (string.find(GetNodeText("ItemSearchResult", 26), "Please wait") and search_wait_tick > 10) then
+      if (search_wait_tick > 50) or (string.find(GetNodeText("ItemSearchResult", 1, 5), "Please wait") and search_wait_tick > 10) then
         SafeCallback("RetainerSell", true, 4)
         yield("/wait 0.1")
         if IsAddonVisible("ItemHistory")==false then
@@ -238,8 +300,8 @@ function SearchResults()
     yield("/wait 0.1")
   end
   old_first_price = first_price
-  search_results = string.gsub(GetNodeText("ItemSearchResult", 2),"%D","")
-  debug("Search results: "..search_results)
+  search_results = string.gsub(GetNodeText("ItemSearchResult", 1, 29),"%D","")
+  debug_log("Search results: "..search_results)
   return search_results
 end
 
@@ -248,26 +310,28 @@ function SearchPrices()
   prices_list = {}
   prices_list_length = 0
 
-  for i = 1, 13 do
-    raw_price = GetNodeText("ItemSearchResult", 5, i, 10)
+  for i = 1, 12 do
+    nodeId = i == 1 and 4 or (i + 40999)
+    raw_price = GetNodeText("ItemSearchResult", 1, 26, nodeId, 5)
 
     if raw_price ~= "" and raw_price ~= 10 then
-      local node_hq = i == 1 and 4 or (i + 40999)
-      local is_visible = IsNodeVisible("ItemSearchResult", 1, 26, node_hq, 2, 3)
+      local is_visible = IsNodeVisible("ItemSearchResult", 1, 26, nodeId, 2, 3)
       local trimmed_price = string.gsub(raw_price, "%D", "")
-	  local raw_retainer = GetNodeText("ItemSearchResult", 5, i, 5)
+      local raw_retainer = GetNodeText("ItemSearchResult", 1, 26, nodeId, 10)
+      
+      echo("is_visible: " .. tostring(is_visible))
 
       prices_list[i] = {
         price = tonumber(trimmed_price),
         isHQ = is_visible,
-		retainer = raw_retainer
+        retainer = raw_retainer
       }
 
-      debug((is_visible and "" or "") .. trimmed_price)
+      debug_log((is_visible and "" or "") .. trimmed_price)
     end
   end
 
-  debug(open_item .. " Prices")
+  debug_log(open_item .. " Prices")
 
   for _, _ in pairs(prices_list) do
     prices_list_length = prices_list_length + 1
@@ -275,46 +339,124 @@ function SearchPrices()
 end
 
 function HistoryAverage()
-  while IsAddonVisible("ItemHistory")==false do
+  while not IsAddonVisible("ItemHistory") do
     SafeCallback("ItemSearchResult", true, 0)
     yield("/wait 0.3")
   end
   yield("/waitaddon ItemHistory")
-  history_tm_count = 0
-  history_tm_running = 0
-  history_list = {}
-  first_history = string.gsub(GetNodeText("ItemHistory", 3, 2, 6),"%d","")
-  while first_history=="" do
+
+  -- Wait for history table to finish loading
+  local first_history = GetNodeText("ItemHistory", 1, 10, 4, 4)
+  while string.gsub(first_history, "%d", "") == "" do
     yield("/wait 0.1")
-    first_history = string.gsub(GetNodeText("ItemHistory", 3, 2, 6),"%d","")
+    first_history = GetNodeText("ItemHistory", 1, 10, 4, 4)
   end
   yield("/wait 0.1")
-  for i= 2, 21 do
-    raw_history_price = GetNodeText("ItemHistory", 3, i, 6)
-    if raw_history_price ~= 6 and raw_history_price ~= "" then
-      trimmed_history_price = string.gsub(raw_history_price,"%D","")
-      history_list[i-1] = tonumber(trimmed_history_price)
-      history_tm_count = history_tm_count + 1
-    end
-  end
-  debug("History items: "..history_tm_count)
-  table.sort(history_list)
-  for i=1, history_trim_amount do
-    if history_tm_count > 2 then
-      table.remove(history_list, history_tm_count)
-      table.remove(history_list, 1)
-      history_tm_count = history_tm_count - 2
+
+  -- Always determine HQ/NQ status for the current item
+  local hq_flag = GetNodeText("RetainerSell", 1, 5, 7)
+  hq_flag = string.gsub(hq_flag, "%g", "")
+  hq_flag = string.gsub(hq_flag, "%s", "")
+  is_hq = (string.len(hq_flag) == 3)
+
+  local raw_hist = {}
+  for i = 1, 20 do
+    nodeId = i == 1 and 4 or (i + 40999)
+    local raw_history_price = GetNodeText("ItemHistory", 1, 10, nodeId, 4)
+    local cleaned = string.gsub(raw_history_price, "[^%d,]", "")
+    cleaned = string.gsub(cleaned, ",", "")
+    local price_number = tonumber(cleaned)
+
+    if price_number then
+      local entry_isHQ = IsNodeVisible("ItemHistory", 1, 10, nodeId, 2, 3)
+      table.insert(raw_hist, { price = price_number, isHQ = entry_isHQ })
     else
-      break
+      debug_log("Skipped row "..i.." — cleaned: "..tostring(cleaned).." | raw: "..tostring(raw_history_price))
     end
   end
-  for history_tm_count, history_tm_price in pairs(history_list) do
-    history_tm_running = history_tm_running + history_tm_price
+  debug_log("== Full raw_hist breakdown ==")
+  for i, e in ipairs(raw_hist) do
+    debug_log("Raw["..i.."] → Price: "..e.price.." | isHQ: "..tostring(e.isHQ))
   end
-  history_trimmed_mean = history_tm_running // history_tm_count
-  debug("History trimmed mean:" .. history_trimmed_mean)
+
+
+  local match_list = {}
+  local mismatch_list = {}
+
+  if is_check_for_hq then
+    for _, e in ipairs(raw_hist) do
+      if e.isHQ == is_hq then
+        table.insert(match_list, e.price)
+      else
+        table.insert(mismatch_list, e.price)
+      end
+    end
+  else
+    for _, e in ipairs(raw_hist) do
+      table.insert(match_list, e.price)
+    end
+  end
+
+  local hist = match_list
+  local apply_multiplier = false
+  local multiplier = 1
+
+  if is_check_for_hq then
+    if #match_list > 0 then
+      hist = match_list
+    elseif #mismatch_list > 0 then
+      debug_log("No matching HQ/NQ history found — falling back to "..(is_hq and "NQ" or "HQ").." history.")
+      debug_log("Fallback history prices: "..table.concat(mismatch_list, ", "))
+      hist = mismatch_list
+      apply_multiplier = true
+      if is_hq then
+        multiplier = 1 / nq_price_drop_multiplier
+      else
+        multiplier = nq_price_drop_multiplier
+      end
+    else
+      debug_log("No usable history entries at all.")
+      history_trimmed_mean = 0
+      return 0
+    end
+  end
+
+  if #hist == 0 then
+    debug_log("No valid history prices found.")
+    history_trimmed_mean = 0
+    return 0
+  end
+
+  table.sort(hist)
+  local count = #hist
+
+  -- Trim extremes if enough entries
+  if count > history_trim_amount * 2 then
+    for i = 1, history_trim_amount do
+      table.remove(hist, count) -- highest
+      table.remove(hist, 1)     -- lowest
+      count = count - 2
+    end
+  end
+
+  local total = 0
+  for _, p in ipairs(hist) do
+    total = total + p
+  end
+
+  history_trimmed_mean = total // #hist
+
+  if apply_multiplier then
+    debug_log("Adjusted history mean ("..history_trimmed_mean..") using multiplier: "..multiplier..", resulting mean: "..math.floor(history_trimmed_mean * multiplier))
+    history_trimmed_mean = math.floor(history_trimmed_mean * multiplier)
+  end
+
+  debug_log("History items: "..#hist)
+  debug_log("History trimmed mean: "..history_trimmed_mean)
   return history_trimmed_mean
 end
+
+
 
 function ItemOverride(mode)
   if is_using_overrides then
@@ -330,27 +472,27 @@ function ItemOverride(mode)
     if itemor.default and mode == "default" then
       price = tonumber(itemor.default)
       is_price_overridden = true
-      debug(open_item.." default price: "..itemor.default.." applied!")
+      debug_log(open_item.." default price: "..itemor.default.." applied!")
     end
     if itemor.minimum then
       if price < itemor.minimum then
         price = tonumber(itemor.minimum)
         is_price_overridden = true
-        debug(open_item.." minimum price: "..itemor.minimum.." applied!")
+        debug_log(open_item.." minimum price: "..itemor.minimum.." applied!")
       end
     end
     if itemor.maximum then
       if price > itemor.maximum then
         price = tonumber(itemor.maximum)
         is_price_overridden = true
-        debug(open_item.." maximum price: "..itemor.maximum.." applied!")
+        debug_log(open_item.." maximum price: "..itemor.maximum.." applied!")
       end
     end
   end
 end
 
 function SetPrice(price)
-  debug("Setting price to: "..price)
+  debug_log("Setting price to: "..price)
   CloseSearch()
   SafeCallback("RetainerSell", true, 2, price)
   SafeCallback("RetainerSell", true, 0)
@@ -390,14 +532,14 @@ function SomethingBroke(what_should_be_visible, extra_info)
     --yield("")
     yield("/echo On second thought, I haven't finished this yet.")
     yield("/echo Oops!")
-    yield("/pcraft stop")
+    yield("/pcraft stop all")
   end
 end
 
 function NextCharacter()
   current_character = GetCharacterName(true)
   next_character = nil
-  debug("Current character: "..current_character)
+  debug_log("Current character: "..current_character)
   for character_number, character_name in pairs(my_characters) do
     if character_name == current_character then
       next_character = my_characters[character_number+1]
@@ -408,7 +550,7 @@ function NextCharacter()
 end
 
 function Relog(relog_character)
-  echo(relog_character)
+  verbose(relog_character)
   yield("/ays relog " .. relog_character)
   while GetCharacterCondition(1) do
     yield("/wait 1.01")
@@ -428,7 +570,7 @@ end
 
 function EnterHouse()
   if IsInZone(339) or IsInZone(340) or IsInZone(341) or IsInZone(641) or IsInZone(979) or IsInZone(136) then
-    debug("Entering house")
+    debug_log("Entering house")
     if is_use_ar_to_enter_house then
       yield("/ays het")
     else
@@ -453,7 +595,7 @@ function EnterHouse()
         yield("/wait 0.200")
       end
     else
-      debug("Not entering house?")
+      debug_log("Not entering house?")
     end
   end
 end
@@ -465,7 +607,7 @@ function OpenBell()
     if target_tick > 99 then
       break
     elseif string.lower(GetTargetName())~="summoning bell" then
-      debug("Finding summoning bell...")
+      debug_log("Finding summoning bell...")
       yield("/target Summoning Bell")
       target_tick = target_tick + 1
     elseif GetDistanceToTarget()<20 then
@@ -508,15 +650,15 @@ function WaitARFinish(ar_time)
   end
 end
 
-function echo(input)
+function verbose(input)
   if is_verbose then
-    yield("/echo [MarketBotty] "..input)
+    yield("/echo [MarketBotty] "..tostring(input))
   else
     yield("/wait 0.01")
   end
 end
 
-function debug(debug_input)
+function debug_log(debug_input)
   if is_debug then
     yield("/echo [MarketBotty][DEBUG] "..debug_input)
   else
@@ -585,16 +727,16 @@ if is_read_from_files then
     while next_line do
       i = i + 1
       my_characters[i] = next_line
-      if is_echo_during_read then debug("Character "..i.." from file: "..next_line) end
+      if is_echo_during_read then debug_log("Character "..i.." from file: "..next_line) end
       next_line = file_characters:read("l")
     end
     file_characters:close()
-    echo("Characters loaded from file: "..i)
+    verbose("Characters loaded from file: "..i)
     if i <= 1 then
       is_multimode = false
     end
   else
-    echo(file_characters.." not found!")
+    verbose(file_characters.." not found!")
   end
   file_retainers = config_folder..retainers_file
   if file_exists(file_retainers) and is_dont_undercut_my_retainers then
@@ -605,13 +747,13 @@ if is_read_from_files then
     while next_line do
       i = i + 1
       my_retainers[i] = next_line
-      if is_echo_during_read then debug("Retainer "..i.." from file: "..next_line) end
+      if is_echo_during_read then debug_log("Retainer "..i.." from file: "..next_line) end
       next_line = file_retainers:read("l")
     end
     file_retainers:close()
-    echo("Retainers loaded from file: "..i)
+    verbose("Retainers loaded from file: "..i)
   else
-    echo(file_retainers.." not found!")
+    verbose(file_retainers.." not found!")
   end
   file_blacklist = config_folder..blacklist_file
   if file_exists(file_blacklist) and is_using_blacklist then
@@ -622,13 +764,13 @@ if is_read_from_files then
     while next_line do
       i = i + 1
       blacklist_retainers[i] = next_line
-      if is_echo_during_read then debug("Blacklist "..i.." from file: "..next_line) end
+      if is_echo_during_read then debug_log("Blacklist "..i.." from file: "..next_line) end
       next_line = file_blacklist:read("l")
     end
     file_blacklist:close()
-    echo("Blacklist loaded from file: "..i)
+    verbose("Blacklist loaded from file: "..i)
   else
-    echo(file_blacklist.." not found!")
+    verbose(file_blacklist.." not found!")
   end
   file_overrides = config_folder..overrides_file
   if file_exists(file_overrides) and is_using_overrides then
@@ -638,9 +780,9 @@ if is_read_from_files then
     chunk()
     or_count = 0
     for _, i in pairs(item_overrides) do or_count = or_count + 1 end
-    echo("Overrides loaded from file: "..or_count)
+    verbose("Overrides loaded from file: "..or_count)
   else
-    echo(file_overrides.." not found!")
+    verbose(file_overrides.." not found!")
   end
 end
 uc=1
@@ -691,13 +833,14 @@ end
 ::Startup::
 Clear()
 if GetCharacterCondition(1, false) then
-  echo("Not logged in?")
+  verbose("Not logged in?")
   yield("/wait 1")
   Relog(my_characters[1])
   goto Startup
 elseif GetCharacterCondition(50, false) then
-  echo("Not at a summoning bell.")
+  verbose("Not at a summoning bell.")
   OpenBell()
+  yield("/wait 0.3")
   goto Startup
 elseif IsAddonVisible("RecommendList") then
   helper_mode = true
@@ -705,31 +848,31 @@ elseif IsAddonVisible("RecommendList") then
     SafeCallback("RecommendList", true, -1)
     yield("/wait 0.1")
   end
-  echo("Starting in helper mode!")
+  verbose("Starting in helper mode!")
   goto Helper
 elseif IsAddonVisible("RetainerList") then
   CountRetainers()
   goto NextRetainer
 elseif IsAddonVisible("RetainerSell") then
-  echo("Starting in single item mode!")
+  verbose("Starting in single item mode!")
   is_single_item_mode = true
   goto RepeatItem
 elseif IsAddonVisible("SelectString") then
-  echo("Starting in single retainer mode!")
+  verbose("Starting in single retainer mode!")
   --yield("/click SelectString Entries[2].Select")
   SafeCallback("SelectString", true, 2)
   yield("/waitaddon RetainerSellList")
   is_single_retainer_mode = true
   goto Sales
 elseif IsAddonVisible("RetainerSellList") then
-  echo("Starting in single retainer mode!")
+  verbose("Starting in single retainer mode!")
   is_single_retainer_mode = true
   goto Sales
 else
-  echo("Unexpected starting conditions!")
-  echo("You broke it. It's your fault.")
-  echo("Do not message me asking for help.")
-  yield("/pcraft stop")
+  verbose("Unexpected starting conditions!")
+  verbose("You broke it. It's your fault.")
+  verbose("Do not message me asking for help.")
+  yield("/pcraft stop all")
 end
 
 ------------------------------------------------------------------------------------------------------
@@ -748,7 +891,10 @@ OpenRetainer(retainers_to_run[next_retainer])
 if CountItems() == 0 then goto Loop end
 
 ::NextItem::
-ClickItem(target_sale_slot)
+if IsAddonVisible("RetainerSellList") then
+  SafeCallback("RetainerSellList", true, 0, target_sale_slot - 1, 1)
+end
+ClickItem()
 
 ::Helper::
 au = uc
@@ -763,15 +909,15 @@ end
 ReadOpenItem()
 if last_item~="" then
   if open_item == last_item then
-    debug("Repeat: "..open_item.." set to "..price)
+    debug_log("Repeat: "..open_item.." set to "..price)
     goto Apply
   end
 end
 
 ::ReadPrices::
 SearchResults()
-current_price = string.gsub(GetNodeText("RetainerSell",6),"%D","")
-if (string.find(GetNodeText("ItemSearchResult", 26), "No items found.")) then
+current_price = string.gsub(GetNodeText("RetainerSell",1,17),"%D","")
+if (string.find(GetNodeText("ItemSearchResult", 1, 5), "No items found.")) then
   if type(history_multiplier)=="number" then
     price = HistoryAverage() * history_multiplier
     price_length = string.len(tostring(price))
@@ -787,61 +933,72 @@ if (string.find(GetNodeText("ItemSearchResult", 26), "No items found.")) then
   ItemOverride("default")
   goto Apply
 end
+
+if is_check_for_hq then
+  local hq = GetNodeText("RetainerSell",1,5,7)
+  item_is_hq = hq:find("") ~= nil
+  if item_is_hq then
+    debug_log("High quality!")
+  else
+    debug_log("Normal quality.")
+  end
+end
+
 target_price = 1
 if is_blind then
-  raw_price = GetNodeText("ItemSearchResult", 5, i, 10)
+  nodeId = i == 1 and 4 or (i + 40999)
+  raw_price = GetNodeText("ItemSearchResult", 1, 26, nodeId, 5)
   if raw_price~="" and raw_price~=10 then
     trimmed_price = string.gsub(raw_price,"%D","")
     price = trimmed_price - uc
     goto Apply
   else
-    echo("Price not found")
-    yield("/pcraft stop")
+    verbose("Price not found")
+    yield("/pcraft stop all")
   end
 else
   SearchPrices()
   HistoryAverage()
   CloseSearch()
 end
+echo("Is HQ? " .. tostring(item_is_hq))
 
-if is_check_for_hq then
-  hq = GetNodeText("RetainerSell",18)
-  hq = string.gsub(hq,"%g","")
-  hq = string.gsub(hq,"%s","")
-  if string.len(hq)==3 then
-    is_hq = true
-    debug("High quality!")
-  else
-    is_hq = false
-    debug("Normal quality.")
-  end
-end
-
+sanity_checks = 0
+max_sanity_checks = price_sanity_check_depth * 2
 ::PricingLogic::
-
-if is_price_sanity_checking and target_price < price_sanity_check_depth then
+if is_price_sanity_checking and target_price < price_sanity_check_depth and target_price < prices_list_length and sanity_checks < max_sanity_checks then
+  sanity_checks = sanity_checks + 1
   if prices_list[target_price].price == 1 then
+    debug_log("prices_list[target_price].price == 1")
     target_price = target_price + 1
     goto PricingLogic
   end
+  verbose(prices_list[target_price].price)
+  verbose(history_trimmed_mean)
   if prices_list[target_price].price <= (history_trimmed_mean // 2) then
+    if is_check_for_hq then
+      if (item_is_hq and not prices_list[target_price].isHQ) or (not item_is_hq and prices_list[target_price].isHQ) then
+        target_price = target_price + 1
+        goto PricingLogic
+      end
+    end
+    debug_log("prices_list[target_price].price <= (history_trimmed_mean // 2)")
     target_price = target_price + 1
-	if target_price >= price_sanity_check_depth then
-	  target_price = 1
-	else
+    if target_price >= price_sanity_check_depth or target_price >= prices_list_length then
+      target_price = 1
+    else
       goto PricingLogic
-	end
+    end
   end
-  debug("Price sanity checking results:")
-  debug("target_price " .. target_price)
-  debug("prices_list[target_price].price " .. prices_list[target_price].price)
+  debug_log("Price sanity checking results:")
+  debug_log("target_price " .. target_price)
+  debug_log("prices_list[target_price].price " .. prices_list[target_price].price)
 end
 
-if is_check_for_hq and is_hq and target_price < prices_list_length then
-  debug("Checking listing " .. target_price .. " for HQ...")
-
+if is_check_for_hq and item_is_hq and target_price < prices_list_length then
+  debug_log("Checking listing " .. target_price .. " for HQ...")
   if not prices_list[target_price].isHQ then
-    debug(target_price .. " not HQ")
+    debug_log(target_price .. " not HQ")
     target_price = target_price + 1
     goto PricingLogic
   end
@@ -850,14 +1007,22 @@ end
 if is_dont_undercut_my_retainers then
   for _, retainer_test in pairs(my_retainers) do
     if retainer_test == prices_list[target_price].retainer then
-      au = 0
-      debug("Matching price with own retainer: " .. retainer_test)
-      break
+  if prices_list[target_price].isHQ == item_is_hq then
+  au = 0
+  debug_log("Matching price with own retainer: " .. retainer_test)
+  break
+  end
     end
   end
 end
 
-price = prices_list[target_price].price - au
+if is_check_for_hq and not item_is_hq and prices_list[target_price].isHQ then
+  price = math.floor(prices_list[target_price].price * nq_price_drop_multiplier + 0.5)
+  echo("isNQ" .. price)
+else
+  price = prices_list[target_price].price - au
+  echo("isHQ" .. price)
+end
 ItemOverride()
 
 
@@ -887,7 +1052,7 @@ if is_override_report and is_price_overridden then
     override_report[override_items_count] = open_item.." set: "..price..". Low: "..lowest_price
   end
 elseif price <= 1 then
-  echo("Should probably vendor this crap instead of setting it to 1. Since this script isn't *that* good yet, I'm just going to set it to...69. That's a nice number. You can deal with it yourself.")
+  verbose("Should probably vendor this crap instead of setting it to 1. Since this script isn't *that* good yet, I'm just going to set it to...69. That's a nice number. You can deal with it yourself.")
   price = 69
   if is_postrun_one_gil_report then
     one_gil_items_count = one_gil_items_count + 1
@@ -908,17 +1073,16 @@ end
 
 
 ::Apply::
-if price ~= tonumber(string.gsub(GetNodeText("RetainerSell",6),"%D","")) then
+if price ~= tonumber(string.gsub(GetNodeText("RetainerSell",1,17,19),"%D","")) then
   SetPrice(price)
 end
 CloseSales()
 
-::Loop::
 if helper_mode then
   yield("/wait 1")
   goto Helper
 elseif is_single_item_mode then
-  yield("/pcraft stop")
+  yield("/pcraft stop all")
 elseif not (tonumber(item_count) <= target_sale_slot) then
   target_sale_slot = target_sale_slot + 1
   goto NextItem
@@ -995,30 +1159,30 @@ while IsAddonVisible("RecommendList") do
   SafeCallback("RecommendList", true, -1)
   yield("/wait 0.1")
 end
-echo("---------------------")
-echo("MarketBotty finished!")
-echo("---------------------")
+verbose("---------------------")
+verbose("MarketBotty finished!")
+verbose("---------------------")
 if is_override_report and override_items_count ~= 0 then
-  echo("Items that triggered override: "..override_items_count)
+  verbose("Items that triggered override: "..override_items_count)
   for i = 1, override_items_count do
-    echo(override_report[i])
+    verbose(override_report[i])
   end
-  echo("---------------------")
+  verbose("---------------------")
 end
 if is_postrun_one_gil_report and one_gil_items_count ~= 0 then
-  echo("Items that triggered 1 gil check: "..one_gil_items_count)
+  verbose("Items that triggered 1 gil check: "..one_gil_items_count)
   for i = 1, one_gil_items_count do
-    echo(one_gil_report[i])
+    verbose(one_gil_report[i])
   end
-  echo("---------------------")
+  verbose("---------------------")
 end
 if is_postrun_sanity_report and sanity_items_count ~= 0 then
-  echo("Items that triggered sanity check: "..sanity_items_count)
+  verbose("Items that triggered sanity check: "..sanity_items_count)
   for i = 1, sanity_items_count do
-    echo(sanity_report[i])
+    verbose(sanity_report[i])
   end
-  echo("---------------------")
+  verbose("---------------------")
 end
-yield("/pcraft stop")
-yield("/pcraft stop")
-yield("/pcraft stop")
+yield("/pcraft stop all")
+yield("/pcraft stop all")
+yield("/pcraft stop all")
