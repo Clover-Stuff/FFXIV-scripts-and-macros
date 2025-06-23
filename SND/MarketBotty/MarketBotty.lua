@@ -1078,6 +1078,7 @@ if price ~= tonumber(string.gsub(GetNodeText("RetainerSell",1,17,19),"%D","")) t
 end
 CloseSales()
 
+::Loop::
 if helper_mode then
   yield("/wait 1")
   goto Helper
