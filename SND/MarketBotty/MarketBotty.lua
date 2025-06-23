@@ -41,7 +41,7 @@ is_postrun_one_gil_report = true  --Requires is_verbose
 is_postrun_sanity_report = true  --Requires is_verbose
 
 is_verbose = true --Basic info in chat about what's going on.
-is_debug = true --Absolutely flood your chat with all sorts of shit you don't need to know.
+is_debug = false --Absolutely flood your chat with all sorts of shit you don't need to know.
 name_rechecks = 10 --Latency sensitive tunable. Probably sets wrong price if below 5
 
 is_read_from_files = true --Override arrays with lists in files. Missing files are ignored.
@@ -70,6 +70,13 @@ end
 
 function echo(text)
 	Echo(text)
+end
+
+function WaitFor(seconds)
+    local startTime = os.clock()
+    while os.clock() - startTime < seconds do
+        yield("/wait 0.000001")  -- tiny yields to avoid freezing
+    end
 end
 
 function IsAddonReady(name)
@@ -132,14 +139,14 @@ end
 function CountRetainers()
   if not IsAddonVisible("RetainerList") then verbose("RetainerList", "CountRetainers()") end
   while string.gsub(GetNodeText("RetainerList", 1, 27, 4, 2, 3),"%d","")=="" do -- 2, i, 13 becomes the 27, i (4, 41001, 41002, ...), 3
-    yield("/wait 0.1")
+    WaitFor(0.1)
   end
-  yield("/wait 0.1")
+  WaitFor(0.1)
   total_retainers = 0
   retainers_to_run = {}
-  yield("/wait 0.1")
+  WaitFor(0.1)
   for i= 1, 10 do
-    yield("/wait 0.01")
+    WaitFor(0.01)
     include_retainer = true
     nodeId = i == 1 and 4 or (i + 40999)
     retainer_name = GetNodeText("RetainerList", 1, 27, nodeId, 2, 3)
@@ -183,19 +190,19 @@ end
 function OpenRetainer(r)
   r = r - 1
   if not IsAddonVisible("RetainerList") then SomethingBroke("RetainerList", "OpenRetainer("..r..")") end
-  yield("/wait 0.3")
+  WaitFor(0.3)
   --yield("/click RetainerList Retainers["..r.."].Select")
   SafeCallback("RetainerList", true, 2, r)
-  yield("/wait 0.5")
+  WaitFor(0.5)
   while IsAddonVisible("SelectString")==false do
     if IsAddonVisible("Talk") and IsAddonReady("Talk") then 
       --yield("/click Talk Click")
       SafeCallback("Talk", true)
     end
-    yield("/wait 0.1")
+    WaitFor(0.1)
   end
   if not IsAddonVisible("SelectString") then SomethingBroke("SelectString", "OpenRetainer("..r..")") end
-  yield("/wait 0.3")
+  WaitFor(0.3)
   --yield("/click SelectString Entries[3].Select")
   SafeCallback("SelectString", true, 3)
   if not IsAddonVisible("RetainerSellList") then SomethingBroke("RetainerSellList", "OpenRetainer("..r..")") end
@@ -209,21 +216,21 @@ function CloseRetainer()
       --yield("/click Talk Click")
       SafeCallback("Talk", true)
     end
-    yield("/wait 0.1")
+    WaitFor(0.1)
   end
 end
 
 function CountItems()
-  while IsAddonReady("RetainerSellList")==false do yield("/wait 0.1") end
+  while IsAddonReady("RetainerSellList")==false do WaitFor(0.1) end
   while string.gsub(GetNodeText("RetainerSellList", 1, 14, 19),"%d","")=="" do
-    yield("/wait 0.1")
+    WaitFor(0.1)
   end
   count_wait_tick = 0
   while GetNodeText("RetainerSellList", 1, 14, 19)==raw_item_count and count_wait_tick < 5 do
     count_wait_tick = count_wait_tick + 1
-    yield("/wait 0.1")
+    WaitFor(0.1)
   end
-  yield("/wait 0.1")
+  WaitFor(0.1)
   raw_item_count = GetNodeText("RetainerSellList", 1, 14, 19)
   item_count_trimmed = string.sub(raw_item_count,1,2)
   item_count = string.gsub(item_count_trimmed,"%D","")
@@ -236,11 +243,11 @@ function ClickItem()
   while IsAddonVisible("RetainerSell")==false do
     if IsAddonVisible("ContextMenu") then
       SafeCallback("ContextMenu", true, 0, 0)
-      yield("/wait 0.2")
+      WaitFor(0.2)
     else
       SomethingBroke("RetainerSellList", "ClickItem()")
     end
-    yield("/wait 0.05")
+    WaitFor(0.05)
   end
 end
 
@@ -250,7 +257,7 @@ function ReadOpenItem()
   item_name_checks = 0
   while item_name_checks < name_rechecks and ( open_item == last_item or open_item == "" ) do
     item_name_checks = item_name_checks + 1
-    yield("/wait 0.1")
+    WaitFor(0.1)
     --open_item = string.sub(string.gsub(GetNodeText("RetainerSell",18),"%W",""),3,-3)
     open_item = string.gsub(GetNodeText("RetainerSell",1,5,7),"%W","")
   end
@@ -260,19 +267,19 @@ end
 
 function SearchResults()
   if IsAddonVisible("ItemSearchResult")==false then
-    yield("/wait 0.1")
+    WaitFor(0.1)
     if IsAddonVisible("ItemSearchResult")==false then
       SafeCallback("RetainerSell", true, 4)
     end
   end
   yield("/waitaddon ItemSearchResult")
   if IsAddonVisible("ItemHistory")==false then
-    yield("/wait 0.1")
+    WaitFor(0.1)
     if IsAddonVisible("ItemHistory")==false then
       SafeCallback("ItemSearchResult", true, 0)
     end
   end
-  yield("/wait 0.1")
+  WaitFor(0.1)
   ready = false
   search_hits = ""
   search_wait_tick = 10
@@ -291,15 +298,15 @@ function SearchResults()
       search_wait_tick = search_wait_tick + 1
       if (search_wait_tick > 50) or (string.find(GetNodeText("ItemSearchResult", 1, 5), "Please wait") and search_wait_tick > 10) then
         SafeCallback("RetainerSell", true, 4)
-        yield("/wait 0.1")
+        WaitFor(0.1)
         if IsAddonVisible("ItemHistory")==false then
           SafeCallback("ItemSearchResult", true, 0)
         end
-        yield("/wait 0.1")
+        WaitFor(0.1)
         search_wait_tick = 0
       end
     end
-    yield("/wait 0.1")
+    WaitFor(0.1)
   end
   old_first_price = first_price
   search_results = string.gsub(GetNodeText("ItemSearchResult", 1, 29),"%D","")
@@ -320,20 +327,14 @@ function SearchPrices()
       local is_visible = IsNodeVisible("ItemSearchResult", 1, 26, nodeId, 2, 3)
       local trimmed_price = string.gsub(raw_price, "%D", "")
       local raw_retainer = GetNodeText("ItemSearchResult", 1, 26, nodeId, 10)
-      
-      echo("is_visible: " .. tostring(is_visible))
 
       prices_list[i] = {
         price = tonumber(trimmed_price),
         isHQ = is_visible,
         retainer = raw_retainer
       }
-
-      debug_log((is_visible and "" or "") .. trimmed_price)
     end
   end
-
-  debug_log(open_item .. " Prices")
 
   for _, _ in pairs(prices_list) do
     prices_list_length = prices_list_length + 1
@@ -343,17 +344,17 @@ end
 function HistoryAverage()
   while not IsAddonVisible("ItemHistory") do
     SafeCallback("ItemSearchResult", true, 0)
-    yield("/wait 0.3")
+    WaitFor(0.3)
   end
   yield("/waitaddon ItemHistory")
 
   -- Wait for history table to finish loading
   local first_history = GetNodeText("ItemHistory", 1, 10, 4, 4)
   while string.gsub(first_history, "%d", "") == "" do
-    yield("/wait 0.1")
+    WaitFor(0.1)
     first_history = GetNodeText("ItemHistory", 1, 10, 4, 4)
   end
-  yield("/wait 0.1")
+  WaitFor(0.1)
 
   -- Always determine HQ/NQ status for the current item
   local hq_flag = GetNodeText("RetainerSell", 1, 5, 7)
@@ -503,7 +504,7 @@ end
 
 function CloseSearch()
   while IsAddonVisible("ItemSearchResult") or IsAddonVisible("ItemHistory") do
-    yield("/wait 0.1")
+    WaitFor(0.1)
     if IsAddonVisible("ItemSearchResult") then SafeCallback("ItemSearchResult", true, -1) end
     if IsAddonVisible("ItemHistory") then SafeCallback("ItemHistory", true, -1) end
   end
@@ -512,7 +513,7 @@ end
 function CloseSales()
   CloseSearch()
   while IsAddonVisible("RetainerSell") do
-    yield("/wait 0.1")
+    WaitFor(0.1)
     if IsAddonVisible("RetainerSell") then SafeCallback("RetainerSell", true, -1) end
   end
 end
@@ -523,7 +524,7 @@ function SomethingBroke(what_should_be_visible, extra_info)
       still_broken = false
       break
     else
-      yield("/wait 0.1")
+      WaitFor(0.1)
     end
   end
   if still_broken then
@@ -555,19 +556,19 @@ function Relog(relog_character)
   verbose(relog_character)
   yield("/ays relog " .. relog_character)
   while GetCharacterCondition(1) do
-    yield("/wait 1.01")
+    WaitFor(1.01)
   end
   while GetCharacterCondition(1, false) do
-    yield("/wait 1.02")
+    WaitFor(1.02)
   end
   while GetCharacterCondition(45) or GetCharacterCondition(35) do
-    yield("/wait 1.03")
+    WaitFor(1.03)
   end
-  yield("/wait 0.5")
+  WaitFor(0.5)
   while GetCharacterCondition(35) do
-    yield("/wait 1.04")
+    WaitFor(1.04)
   end
-  yield("/wait 2")
+  WaitFor(2)
 end
 
 function EnterHouse()
@@ -579,14 +580,14 @@ function EnterHouse()
       yield("/target Entrance")
       yield("/target Apartment Building Entrance")
     end
-    yield("/wait 1")
+    WaitFor(1)
     if string.find(string.lower(GetTargetName()), "entrance") then
       while IsInZone(339) or IsInZone(340) or IsInZone(341) or IsInZone(641) or IsInZone(979) or IsInZone(136) do
         if not is_use_ar_to_enter_house then
           yield("/lockon on")
           yield("/automove on")
         end
-        yield("/wait 1.2")
+        WaitFor(1.2)
       end
       het_tick = 0
       while het_tick < 3 do
@@ -594,7 +595,7 @@ function EnterHouse()
         elseif IsMoving() then het_tick = 0
         else het_tick = het_tick + 0.2
         end
-        yield("/wait 0.200")
+        WaitFor(0.200)
       end
     else
       debug_log("Not entering house?")
@@ -621,12 +622,12 @@ function OpenBell()
       yield("/pinteract")
     end
     yield("/lockon on")
-    yield("/wait 0.511")
+    WaitFor(0.511)
   end
   if GetCharacterCondition(50) then
     yield("/lockon off")
-    while not IsAddonVisible("RetainerList") do yield("/wait 0.100") end
-    yield("/wait 0.4")
+    while not IsAddonVisible("RetainerList") do WaitFor(0.100) end
+    WaitFor(0.4)
     return true
   else
     return false
@@ -637,7 +638,7 @@ function WaitARFinish(ar_time)
   title_wait = 0
   if not ar_time then ar_time = 10 end
   while IsAddonVisible("_TitleMenu")==false do
-    yield("/wait 5.01")
+    WaitFor(5.01)
   end
   while true do
     if IsAddonVisible("_TitleMenu") and IsAddonVisible("NowLoading")==false then
@@ -656,7 +657,7 @@ function verbose(input)
   if is_verbose then
     yield("/echo [MarketBotty] "..tostring(input))
   else
-    yield("/wait 0.01")
+    WaitFor(0.01)
   end
 end
 
@@ -664,7 +665,7 @@ function debug_log(debug_input)
   if is_debug then
     yield("/echo [MarketBotty][DEBUG] "..debug_input)
   else
-    yield("/wait 0.01")
+    WaitFor(0.01)
   end
 end
 
@@ -834,19 +835,19 @@ end
 Clear()
 if GetCharacterCondition(1, false) then
   verbose("Not logged in?")
-  yield("/wait 1")
+  WaitFor(1)
   Relog(my_characters[1])
   goto Startup
 elseif GetCharacterCondition(50, false) then
   verbose("Not at a summoning bell.")
   OpenBell()
-  yield("/wait 0.3")
+  WaitFor(0.3)
   goto Startup
 elseif IsAddonVisible("RecommendList") then
   helper_mode = true
   while IsAddonVisible("RecommendList") do
     SafeCallback("RecommendList", true, -1)
-    yield("/wait 0.1")
+    WaitFor(0.1)
   end
   verbose("Starting in helper mode!")
   goto Helper
@@ -883,7 +884,7 @@ if next_retainer < total_retainers then
 else
   goto MultiMode
 end
-yield("/wait 0.1")
+WaitFor(0.1)
 target_sale_slot = 1
 OpenRetainer(retainers_to_run[next_retainer])
 
@@ -899,7 +900,7 @@ ClickItem()
 ::Helper::
 uc = undercut
 while IsAddonVisible("RetainerSell")==false do
-  yield("/wait 0.5")
+  WaitFor(0.5)
   if GetCharacterCondition(50, false) or IsAddonVisible("RecommendList") then
     goto EndOfScript
   end
@@ -961,7 +962,6 @@ else
   HistoryAverage()
   CloseSearch()
 end
-echo("Is HQ? " .. tostring(item_is_hq))
 
 sanity_checks = 0
 max_sanity_checks = price_sanity_check_depth * 2
@@ -969,12 +969,9 @@ max_sanity_checks = price_sanity_check_depth * 2
 if is_price_sanity_checking and target_price < price_sanity_check_depth and target_price < prices_list_length and sanity_checks < max_sanity_checks then
   sanity_checks = sanity_checks + 1
   if prices_list[target_price].price == 1 then
-    debug_log("prices_list[target_price].price == 1")
     target_price = target_price + 1
     goto PricingLogic
   end
-  verbose(prices_list[target_price].price)
-  verbose(history_trimmed_mean)
   if prices_list[target_price].price <= (history_trimmed_mean // 2) then
     if is_check_for_hq then
       if (item_is_hq and not prices_list[target_price].isHQ) or (not item_is_hq and prices_list[target_price].isHQ) then
@@ -982,7 +979,6 @@ if is_price_sanity_checking and target_price < price_sanity_check_depth and targ
         goto PricingLogic
       end
     end
-    debug_log("prices_list[target_price].price <= (history_trimmed_mean // 2)")
     target_price = target_price + 1
     if target_price >= price_sanity_check_depth or target_price >= prices_list_length then
       target_price = 1
@@ -1018,10 +1014,8 @@ end
 
 if is_check_for_hq and not item_is_hq and prices_list[target_price].isHQ then
   price = math.floor(prices_list[target_price].price * nq_price_drop_multiplier + 0.5)
-  echo("isNQ" .. price)
 else
   price = prices_list[target_price].price - uc
-  echo("isHQ" .. price)
 end
 ItemOverride()
 
@@ -1080,7 +1074,7 @@ CloseSales()
 
 ::Loop::
 if helper_mode then
-  yield("/wait 1")
+  WaitFor(1)
   goto Helper
 elseif is_single_item_mode then
   yield("/pcraft stop all")
@@ -1098,7 +1092,7 @@ end
 if is_multimode then
   while IsAddonVisible("RetainerList") do
     SafeCallback("RetainerList", true, -1)
-    yield("/wait 1")
+    WaitFor(1)
   end
   NextCharacter()
   if not next_character then goto AfterMulti end
@@ -1110,24 +1104,24 @@ else
 end
 
 ::AfterMulti::
-yield("/wait 3")
+WaitFor(3)
 if string.find(after_multi, "logout") then
   yield("/logout")
   yield("/waitaddon SelectYesno")
-  yield("/wait 0.5")
+  WaitFor(0.5)
   SafeCallback("SelectYesno", true, 0)
   while GetCharacterCondition(1) do
-    yield("/wait 1.1")
+    WaitFor(1.1)
   end
 elseif wait_until then
   if is_autoretainer_while_waiting then
     yield("/ays multi e")
     while GetCharacterCondition(1, false) do
-      yield("/wait 10.1")
+      WaitFor(10.1)
     end
   end
   while os.time() < wait_until do
-    yield("/wait 12")
+    WaitFor(12)
   end
   if is_autoretainer_while_waiting then
     WaitARFinish()
@@ -1142,7 +1136,7 @@ if string.find(after_multi, "wait logout") then
   if is_autoretainer_while_waiting then
     yield("/ays multi e")
     while GetCharacterCondition(1, false) do
-      yield("/wait 10.2")
+      WaitFor(10.2)
     end
   end
   WaitARFinish()
@@ -1151,14 +1145,14 @@ if string.find(after_multi, "wait logout") then
 end
 
 if GetCharacterCondition(50, false) and multimode_ending_command then
-  yield("/wait 3")
+  WaitFor(3)
   yield(multimode_ending_command)
 end
 
 ::EndOfScript::
 while IsAddonVisible("RecommendList") do
   SafeCallback("RecommendList", true, -1)
-  yield("/wait 0.1")
+  WaitFor(0.1)
 end
 verbose("---------------------")
 verbose("MarketBotty finished!")
