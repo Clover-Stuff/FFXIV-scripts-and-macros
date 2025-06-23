@@ -2,7 +2,8 @@ import("System.Numerics")
 
 --[[
     MarketBotty! Fuck it, I'm going there. Don't @ me.
-    https://github.com/plottingCreeper/FFXIV-scripts-and-macros/tree/main/SND/MarketBotty
+    Original Creator: https://github.com/plottingCreeper/FFXIV-scripts-and-macros/tree/main/SND/MarketBotty
+    Clover's Fork: https://github.com/Clover-Stuff/FFXIV-scripts-and-macros/tree/main/SND/MarketBotty
 ]]
 
 my_characters = { --Characters to switch to in multimode
@@ -33,6 +34,7 @@ history_trim_amount = 5 --Trims this many from highest and lowest in history lis
 history_multiplier = "round" --if no active sales then get average historical price and multiply
 is_using_overrides = true --item_overrides table.
 is_check_for_hq = true --Working!
+nq_price_drop_multiplier = 0.6
 
 is_override_report = true
 is_postrun_one_gil_report = true  --Requires is_verbose
