@@ -705,7 +705,6 @@ function Clear()
   last_item = ""
   open_item = ""
   is_single_retainer_mode = false
-  undercut = 1
   target_sale_slot = 1
 end
 
@@ -786,7 +785,6 @@ if is_read_from_files then
   end
 end
 uc=1
-au=1
 if is_override_report then
   override_items_count = 0
   override_report = {}
@@ -897,7 +895,7 @@ end
 ClickItem()
 
 ::Helper::
-au = uc
+uc = undercut
 while IsAddonVisible("RetainerSell")==false do
   yield("/wait 0.5")
   if GetCharacterCondition(50, false) or IsAddonVisible("RecommendList") then
@@ -1008,7 +1006,7 @@ if is_dont_undercut_my_retainers then
   for _, retainer_test in pairs(my_retainers) do
     if retainer_test == prices_list[target_price].retainer then
   if prices_list[target_price].isHQ == item_is_hq then
-  au = 0
+  uc = 0
   debug_log("Matching price with own retainer: " .. retainer_test)
   break
   end
@@ -1020,7 +1018,7 @@ if is_check_for_hq and not item_is_hq and prices_list[target_price].isHQ then
   price = math.floor(prices_list[target_price].price * nq_price_drop_multiplier + 0.5)
   echo("isNQ" .. price)
 else
-  price = prices_list[target_price].price - au
+  price = prices_list[target_price].price - uc
   echo("isHQ" .. price)
 end
 ItemOverride()
